@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { TrendingUp, Mail, Lock, Loader2, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +16,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Marca componente como montado
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,13 +59,14 @@ export default function LoginPage() {
       const isAdmin = userData?.is_admin === true
 
       if (!isAdmin) {
-        // Verificar assinatura ativa
+        // Verificar assinatura ativa - usa Date apenas no cliente após mount
+        const currentDate = new Date().toISOString()
         const { data: subscription } = await supabase
           .from('subscriptions')
           .select('*')
           .eq('email', email)
           .eq('status', 'active')
-          .gte('end_date', new Date().toISOString())
+          .gte('end_date', currentDate)
           .single()
 
         if (!subscription) {
@@ -78,6 +85,11 @@ export default function LoginPage() {
       setError("Erro ao fazer login. Tente novamente.")
       setIsLoading(false)
     }
+  }
+
+  // Renderiza apenas após mount para evitar hydration mismatch
+  if (!isMounted) {
+    return null
   }
 
   return (

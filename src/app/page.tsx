@@ -372,13 +372,13 @@ export default function CarteiraPro() {
       "Os dividendos são uma excelente forma de renda passiva. Empresas como Itaú, Petrobras e Vale historicamente pagam bons dividendos. Considere o dividend yield e a consistência dos pagamentos.",
       "O momento ideal para investir é agora! O importante é começar, mesmo com valores pequenos. Use a estratégia de aportes mensais regulares para aproveitar diferentes momentos do mercado."
     ]
-    
-    // Gera índice aleatório ANTES do setTimeout (executado apenas no cliente após mount)
-    const randomIndex = Math.floor(Math.random() * responses.length)
-    const randomResponse = responses[randomIndex]
 
     // Simulação de resposta da IA
     setTimeout(() => {
+      // Gera índice aleatório DENTRO do setTimeout (apenas no cliente após mount)
+      const randomIndex = Math.floor(Math.random() * responses.length)
+      const randomResponse = responses[randomIndex]
+      
       setMessages(prev => [...prev, { role: 'assistant', content: randomResponse }])
       setIsLoadingChat(false)
     }, 1500)

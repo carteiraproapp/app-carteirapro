@@ -1,147 +1,207 @@
-'use client';
+"use client"
 
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { supabase } from '@/lib/supabase';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { TrendingUp, Mail, Lock, Loader2, AlertCircle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { getSupabaseClient } from "@/lib/supabase"
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  useEffect(() => {
-    // Verificar se usuário já está logado
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.push('/');
-      } else {
-        setLoading(false);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setIsLoading(true)
+
+    try {
+      const supabase = getSupabaseClient()
+
+      // Fazer login com Supabase Auth
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        setError("Email ou senha incorretos. Verifique suas credenciais.")
+        setIsLoading(false)
+        return
       }
-    });
 
-    // Escutar mudanças de autenticação
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        router.push('/onboarding');
+      if (!data.user) {
+        setError("Erro ao fazer login. Tente novamente.")
+        setIsLoading(false)
+        return
       }
-    });
 
-    return () => subscription.unsubscribe();
-  }, [router]);
+      // Verificar se usuário tem assinatura ativa ou é admin
+      const { data: userData } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('email', email)
+        .single()
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+      const isAdmin = userData?.is_admin === true
+
+      if (!isAdmin) {
+        // Verificar assinatura ativa
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('email', email)
+          .eq('status', 'active')
+          .gte('end_date', new Date().toISOString())
+          .single()
+
+        if (!subscription) {
+          setError("Sua assinatura expirou ou não foi encontrada. Por favor, renove seu plano.")
+          await supabase.auth.signOut()
+          setIsLoading(false)
+          return
+        }
+      }
+
+      // Login bem-sucedido - redirecionar para o app
+      router.push("/")
+      router.refresh()
+    } catch (error) {
+      console.error("Erro no login:", error)
+      setError("Erro ao fazer login. Tente novamente.")
+      setIsLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo e Título */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl mb-4">
-            <span className="text-white font-bold text-2xl">CP</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700 shadow-2xl">
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/50">
+              <TrendingUp className="w-10 h-10 text-black" />
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">CarteiraPro</h1>
-          <p className="text-gray-400">Gestão Financeira Inteligente</p>
-        </div>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-600 bg-clip-text text-transparent">
+            CarteiraPro
+          </CardTitle>
+          <CardDescription className="text-gray-300 text-base">
+            Faça login para acessar sua plataforma de investimentos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <Alert className="bg-red-500/10 border-red-500/50 text-red-400">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-        {/* Card de Login */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
-          <Auth
-            supabaseClient={supabase}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: '#3b82f6',
-                    brandAccent: '#2563eb',
-                    brandButtonText: 'white',
-                    defaultButtonBackground: 'transparent',
-                    defaultButtonBackgroundHover: '#1e293b',
-                    defaultButtonBorder: '#334155',
-                    defaultButtonText: 'white',
-                    dividerBackground: '#334155',
-                    inputBackground: 'rgba(255, 255, 255, 0.05)',
-                    inputBorder: '#334155',
-                    inputBorderHover: '#475569',
-                    inputBorderFocus: '#3b82f6',
-                    inputText: 'white',
-                    inputLabelText: '#cbd5e1',
-                    inputPlaceholder: '#64748b',
-                  },
-                  space: {
-                    spaceSmall: '8px',
-                    spaceMedium: '16px',
-                    spaceLarge: '24px',
-                  },
-                  fontSizes: {
-                    baseBodySize: '14px',
-                    baseInputSize: '14px',
-                    baseLabelSize: '14px',
-                    baseButtonSize: '14px',
-                  },
-                  radii: {
-                    borderRadiusButton: '8px',
-                    buttonBorderRadius: '8px',
-                    inputBorderRadius: '8px',
-                  },
-                },
-              },
-              className: {
-                container: 'auth-container',
-                button: 'auth-button',
-                input: 'auth-input',
-              },
-            }}
-            localization={{
-              variables: {
-                sign_in: {
-                  email_label: 'Email',
-                  password_label: 'Senha',
-                  email_input_placeholder: 'seu@email.com',
-                  password_input_placeholder: 'Sua senha',
-                  button_label: 'Entrar',
-                  loading_button_label: 'Entrando...',
-                  social_provider_text: 'Entrar com {{provider}}',
-                  link_text: 'Já tem uma conta? Entre',
-                },
-                sign_up: {
-                  email_label: 'Email',
-                  password_label: 'Senha',
-                  email_input_placeholder: 'seu@email.com',
-                  password_input_placeholder: 'Sua senha',
-                  button_label: 'Criar conta',
-                  loading_button_label: 'Criando conta...',
-                  social_provider_text: 'Criar conta com {{provider}}',
-                  link_text: 'Não tem uma conta? Cadastre-se',
-                },
-                forgotten_password: {
-                  email_label: 'Email',
-                  password_label: 'Senha',
-                  email_input_placeholder: 'seu@email.com',
-                  button_label: 'Enviar instruções',
-                  loading_button_label: 'Enviando...',
-                  link_text: 'Esqueceu sua senha?',
-                },
-              },
-            }}
-            providers={[]}
-          />
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-white">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white pl-10"
+                  required
+                />
+              </div>
+            </div>
 
-        {/* Footer */}
-        <p className="text-center text-gray-400 text-sm mt-6">
-          Alcance sua independência financeira com planejamento inteligente
-        </p>
-      </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-white">Senha</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white pl-10"
+                  required
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-green-400 to-emerald-600 text-black hover:from-green-500 hover:to-emerald-700 font-semibold text-base h-12"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                "Entrar"
+              )}
+            </Button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-gray-700 space-y-4">
+            <p className="text-center text-sm text-gray-400">
+              Comprou mas ainda não criou sua conta?{" "}
+              <button
+                onClick={() => router.push('/register')}
+                className="text-green-400 hover:text-green-300 font-semibold"
+              >
+                Criar conta agora
+              </button>
+            </p>
+            
+            <div className="pt-4 border-t border-gray-700">
+              <p className="text-center text-sm text-gray-400 mb-3">
+                Não tem uma conta?{" "}
+                <span className="text-green-400 font-semibold">Assine agora</span>
+              </p>
+              <div className="space-y-2 text-xs text-gray-500 text-center">
+                <p className="font-semibold text-gray-400">Planos disponíveis:</p>
+                <div className="flex flex-col gap-2">
+                  <a
+                    href="https://pay.kirvano.com/227ebec4-ebf0-4e94-a9ee-8e13f323c3ac"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-400 hover:text-green-300 font-semibold hover:underline"
+                  >
+                    📅 Plano Mensal
+                  </a>
+                  <a
+                    href="https://pay.kirvano.com/c27cf3e4-51e9-41df-8101-3988f6073c45"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-400 hover:text-green-300 font-semibold hover:underline"
+                  >
+                    📅 Plano Semestral (Economize!)
+                  </a>
+                  <a
+                    href="https://pay.kirvano.com/351891dd-c61a-42d1-b9ce-90d32f33e246"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-400 hover:text-green-300 font-semibold hover:underline"
+                  >
+                    📅 Plano Anual (Melhor Oferta!)
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
 }

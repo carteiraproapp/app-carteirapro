@@ -3,10 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   devIndicators: false, // Remove widget de desenvolvimento Next.js
   
-  // Ignorar erros durante build (compatibilidade Vercel)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Ignorar erros TypeScript durante build (compatibilidade Vercel)
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -196,7 +193,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
   
-  // Headers CORS para permitir acesso da plataforma Lasy
+  // Headers CORS para permitir acesso da plataforma Lasy e Kirvano
   async headers() {
     return [
       {
@@ -220,6 +217,24 @@ const nextConfig: NextConfig = {
           }
         ]
       }
+    ]
+  },
+  
+  // Configuração de redirecionamento para domínio personalizado
+  async redirects() {
+    return [
+      // Redirecionar www para domínio principal (se necessário)
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'www.carteiraproapp.com',
+          },
+        ],
+        destination: 'https://carteiraproapp.com/:path*',
+        permanent: true,
+      },
     ]
   },
 };
